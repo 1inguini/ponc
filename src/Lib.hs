@@ -1,23 +1,33 @@
 module Lib where
 
+import           Control.Monad.State  (State, evalState, get, gets, lift,
+                                       modify, put)
+import           Data.Char            (isAscii)
+import           Data.Map             (Map, elems, empty, insert, (!?))
 import           Data.Text            (Text)
 import qualified Data.Text.IO         as TIO
 import           Data.Void            (Void)
-import           Text.Megaparsec      (ParseErrorBundle, Parsec, between,
+import           Safe                 (maximumDef)
+import           Text.Megaparsec      (ParseErrorBundle, ParsecT, between,
                                        choice, eof, errorBundlePretty, many,
-                                       parse, single, (<|>))
-import           Text.Megaparsec.Char (alphaNumChar, space)
+                                       runParserT, single, takeWhile1P, (<|>))
+import           Text.Megaparsec.Char (space)
+-- import           Text.Megaparsec.Debug (dbg)
 import           Text.Pretty.Simple   as PrettyS
 
-
-data Expr = DefLambda { freeVar :: Val, body :: Expr }
-          | ExprVal { exprVal :: Val }
-          | Apply { exprFunc :: Expr, exprArg :: Expr }
+data Expr = DefLambda { body :: Expr }
+          | ExprVal   { index :: Integer }
+          | Apply     { exprFunc :: Expr, exprArg :: Expr }
           deriving (Show, Eq)
 
-newtype Val = Val Char deriving (Show, Eq)
+-- newtype Val = Val Integer deriving (Show, Ord, Eq)
 
-type Parser = Parsec Void Text
+type Parser = ParsecT Void Text (State (Map Text Integer))
+
+
+ident :: Parser Text
+ident = takeWhile1P (Just "identifier") (`elem` ['a'..'z'] <> ['A'..'Z'])
+
 
 execParseFilePrint :: [String] -> IO ()
 execParseFilePrint files =
@@ -32,29 +42,40 @@ execParseFile files =
 
 
 src2Expr :: FilePath -> Text -> Either (ParseErrorBundle Text Void) Expr
-src2Expr = parse (pExpr <* space <* eof)
+src2Expr fPath src = evalState (runParserT (pExpr <* space <* eof) fPath src) empty
 
 
-pVal :: Parser Val
-pVal = Val <$> alphaNumChar
+pVal :: Parser Integer
+pVal = --dbg "val" $
+  do
+  var <- ident
+  env <- get
+  maybe (fail "unbound var") pure $ env !? var
+
 
 pExpr :: Parser Expr
-pExpr = do
+pExpr = --dbg "expr" $
+  do
   fstArg    <- pTerm
   argAndOps <- many $ flip Apply <$> pTerm
   pure $ foldr (flip (.)) id argAndOps fstArg
 
+
 pLamdba :: Parser Expr
-pLamdba = do
+pLamdba = --dbg "lambda" $
+  do
   space
-  _    <- single '\\' <|> single '^'
-  free <- pVal
-  _    <- single '.'
-  body <- pExpr
-  pure $ DefLambda { freeVar = free, body = body }
+  _     <- single '\\' <|> single '^'
+  bound <- ident <* single '.'
+  depth <- lift $ gets $ maximumDef (-1) . elems
+  lift $ modify $ insert bound (succ depth)
+  body  <- pExpr
+  pure $ DefLambda { body = body }
+
 
 pTerm :: Parser Expr
-pTerm = between space space $ choice
+pTerm = --dbg "term" $
+  between space space $ choice
         [ pLamdba
         , ExprVal <$> pVal
         , single '(' *> pExpr <* space <* single ')'
