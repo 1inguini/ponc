@@ -1,0 +1,5 @@
+
+(* N; $1)
+(* N, N; $1) (* N ^ N, N^(N ^ N);
+  0 succ succ 0 $1 succ
+)

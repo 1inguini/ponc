@@ -1,0 +1,82 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 8df6040694ea5dc9d85419c07223aac1e6299231c54bf81d8d8e6952ff79d8f9
+
+name:           ponc
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/ponc#readme>
+homepage:       https://github.com/1inguini/ponc#readme
+bug-reports:    https://github.com/1inguini/ponc/issues
+author:         linguini
+maintainer:     example@example.com
+copyright:      2019 linguini
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/1inguini/ponc
+
+library
+  exposed-modules:
+      CullyLib
+      FoldStack
+      Parse
+  other-modules:
+      Paths_ponc
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , megaparsec
+    , mtl
+    , pretty-simple
+    , safe
+    , text
+  default-language: Haskell2010
+
+executable ponc-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_ponc
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , megaparsec
+    , mtl
+    , ponc
+    , pretty-simple
+    , safe
+    , text
+  default-language: Haskell2010
+
+test-suite ponc-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_ponc
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , megaparsec
+    , mtl
+    , ponc
+    , pretty-simple
+    , safe
+    , text
+  default-language: Haskell2010

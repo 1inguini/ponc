@@ -1,9 +1,17 @@
 module Main where
 
-import           Lib
+import           CullyLib
+
+import           Safe               (headMay)
 import           System.Environment (getArgs)
 
 main :: IO ()
 main = do
-  files <- getArgs
-  execParseFilePrint files
+  ops <- getArgs
+  maybe help (\com -> case com of
+                 "parse" -> execParseFilePrint $ tail ops
+                 _       -> help)
+    $ headMay ops
+
+help :: IO ()
+help = putStrLn "COMMANDS: parse"
