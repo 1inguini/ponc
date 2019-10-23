@@ -1,6 +1,6 @@
 module Main where
 
-import           CullyLib
+import           PoncLib
 
 import           Safe               (headMay)
 import           System.Environment (getArgs)

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8df6040694ea5dc9d85419c07223aac1e6299231c54bf81d8d8e6952ff79d8f9
+-- hash: 220b3b4abfe51e83703946e683d090c0915f95418b2ae2c7a9fd8423a957a3cb
 
 name:           ponc
 version:        0.1.0.0
@@ -27,9 +27,11 @@ source-repository head
 
 library
   exposed-modules:
-      CullyLib
       FoldStack
       Parse
+      PoncLib
+      Shared
+      Typing
   other-modules:
       Paths_ponc
   hs-source-dirs:

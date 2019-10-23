@@ -1,5 +1,6 @@
 
-(* N; $1)
-(* N, N; $1) (* N ^ N, N^(N ^ N);
-  0 succ succ 0 $1 succ
-)
+< [I] -> I | $1 >
+< [I, I] -> I | $1 >
+< [ [I] -> I, [ I, I] -> I ] -> I
+| 0 succ succ 0 $1 succ
+>

@@ -1,3 +1,10 @@
 module FoldStack where
 
-import           CullyLib
+import           PoncLib
+
+import           Data.IntMap (IntMap)
+
+data Function = Function
+
+typeStack :: Stack -> (IntMap Function, Function)
+typeStack = undefined
