@@ -2,7 +2,7 @@ module Shared where
 
 import           Text.Megaparsec (SourcePos)
 
-newtype Stack = Stack { unStack ::  [(SourcePos, Stackable)] }
+newtype Stack = Stack { unStack :: [(SourcePos, Node Stack)] }
               deriving (Eq)
 
 instance Show Stack where
@@ -12,18 +12,17 @@ data Type = I
           | Func { args :: [Type], result :: Type }
           deriving (Show, Eq)
 
-data Stackable = DefSuperComb { superCombType :: Type, body :: Stack }
-               | StackedVal Val
-               | RecStack Stack
-               deriving (Show, Eq)
+data Node s = DefSuperComb { superCombType :: Type, body :: s }
+            | StackedVal Val
+            deriving (Show, Eq)
 
 data Val = -- IntVal Integer
          -- |
            Zero
          | Bounded Integer
          | SuccNotPred Bool
+         -- | FixPoint
          deriving (Show, Ord, Eq)
 
-type TypedStackable = (SourcePos, Type, Stackable)
 
-newtype TypedStack = TypedStack { unTypeStack :: [TypedStackable] } deriving (Show, Eq)
+newtype TypedStack = TypedStack { unTypeStack :: [(SourcePos, Type, Node TypedStack)] } deriving (Show, Eq)

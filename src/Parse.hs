@@ -4,8 +4,8 @@ module Parse
   , execParseFilePrint
   , Stack ) where
 
-import           Shared                     (Stack (..), Stackable (..),
-                                             Type (..), Val (..))
+import           Shared                     (Node (..), Stack (..), Type (..),
+                                             Val (..))
 
 import           Control.Monad.State.Strict (State, get, gets, lift, modify,
                                              put, runState)
@@ -80,10 +80,10 @@ pVal = --dbg "val" $
   ]
 
 
--- src2Expr :: FilePath -> Text -> Either (ParseErrorBundle Text Void) [Stackable]
+-- src2Expr :: FilePath -> Text -> Either (ParseErrorBundle Text Void) [Node]
 -- src2Expr filePath src = evalState (runParserT (pExpr <* space <* eof) filePath src) $ initialPos filePath
 
--- src2Expr :: FilePath -> Text -> Either (ParseErrorBundle Text Void) [Stackable]
+-- src2Expr :: FilePath -> Text -> Either (ParseErrorBundle Text Void) [Node]
 -- src2Expr filePath src = snd <$> parse (unParser (pExpr <* space <* eof)) filePath src
 
 src2Expr :: FilePath -> Text -> Either (ParseErrorBundle Text Void) Stack
@@ -94,7 +94,7 @@ pExpr :: Parser Stack
 pExpr = --dbg "expr" $
   Stack <$> (space *> (wrap pTerm `sepEndBy` space))
 
-pLambda :: Parser Stackable
+pLambda :: Parser (Node Stack)
 pLambda = --dbg "lambda" $
   angles $ do
   argTys <- lexeme pType
@@ -110,10 +110,10 @@ pLambda = --dbg "lambda" $
 
       pTypeTerm = I <$ "I" <|> pType
 
-pTerm :: Parser Stackable
+pTerm :: Parser (Node Stack)
 pTerm = --dbg "term" $
   lexeme $ choice
   [ pLambda
   , StackedVal <$> pVal
-  , RecStack <$> parens pExpr
+  -- , RecStack <$> parens pExpr
   ]
