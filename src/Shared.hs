@@ -25,4 +25,8 @@ data Val = -- IntVal Integer
          deriving (Show, Ord, Eq)
 
 
-newtype TypedStack = TypedStack { unTypeStack :: [(SourcePos, Type, Node TypedStack)] } deriving (Show, Eq)
+newtype TypedStack = TypedStack { unTypeStack :: [(SourcePos, Type, Node TypedStack)] } deriving (Eq)
+
+instance Show TypedStack where
+  show (TypedStack tyStack) = show $ (\(_,ty,node) -> (ty,node)) <$> tyStack
+

@@ -1,7 +1,7 @@
 
-< [I] -> I | $1 >
+< [I] -> I | $0 >
 < [I, I] -> I | $1 >
 < [ [I] -> I, [ I, I] -> I ] -> I
-| 0 succ succ 0 $1 succ
+| 0 < [I] -> I | $0 > 0 succ succ $1 succ
 >
 

@@ -1,9 +1,11 @@
-module Typing where
+module Typing
+  ( stack2typedStack
+  ) where
 
 import           Shared                     (Node (..), Stack (..), Type (..),
                                              TypedStack (..), Val (..))
 
-import           Control.Monad.Reader       (ReaderT, ask, local, runReader)
+import           Control.Monad.Reader       (ReaderT, ask, local, runReaderT)
 import           Control.Monad.State.Strict (StateT, get, modify, put)
 import           Control.Monad.Trans        (lift)
 import           Data.Bool                  (bool)
@@ -13,6 +15,9 @@ import           Data.Void                  (Void)
 import           Safe                       (atMay, headMay)
 import           Text.Megaparsec            (ParseError, SourcePos)
 
+
+stack2typedStack :: Stack -> Either SourcePos TypedStack
+stack2typedStack stack = runReaderT (stackType stack) []
 
 stackNormalizeTo :: (SourcePos, Stack) -> ReaderT [Type] (Either SourcePos) (Type, TypedStack)
 stackNormalizeTo (pos, stack) = do
