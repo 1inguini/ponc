@@ -22,16 +22,15 @@ instance ShowErrorComponent NonParserError where
   showErrorComponent TypeMismatch { expectedType = expected, actualType = actual } =
     "expected type " <> show expected <> " but got " <> show actual
   showErrorComponent UnboundedArg { expectedArgs = expected, actualArg = actual } =
-    let showExpected = intercalate ", "
-          $ (\(i,ty) -> "$" <> show i <> " : " <> show ty) <$> zip [0..] expected
-    in "expected type " <> showExpected <> " but got $" <> show actual
+    let showExpected = intercalate " or "
+          $ (\(i,ty) -> "$" <> show i <> " : " <> unparseType ty) <$> zip [0..] expected
+    in "expected one of " <> showExpected <> " but got $" <> show actual
   showErrorComponent ExcessArgs =
     "excess args"
   showErrorComponent LackArgs =
     "lacks args"
 
 type Position = PosState Text
-
 
 newtype Stack = Stack { unStack :: [(Position, Node Stack)] }
               deriving (Eq)
@@ -46,6 +45,12 @@ data Type = Norm NormType
 data FuncType = FuncType { args :: [Type], result :: Type } deriving (Show, Eq, Ord)
 
 data NormType = I deriving (Show, Eq, Ord)
+
+unparseType :: Type -> String
+unparseType (Norm I)                                        = "I"
+unparseType (Func FuncType { args = tys, result = result }) =
+  "[ " <> intercalate ", " (unparseType <$> tys) <> " ] -> " <> unparseType result
+
 
 data Node s = DefSuperComb { superCombType :: FuncType, body :: s }
             | StackedVal Val

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Parse
-  ( filePath2Stack ) where
+  ( filePathSrc2Stack ) where
 
 import           Shared                     (ErrorBundle, FuncType (..),
                                              Node (..), NormType (..), Parser,
@@ -22,8 +22,8 @@ import qualified Text.Megaparsec.Char.Lexer as L (lexeme,
 import           Text.Megaparsec.Debug      (dbg)
 
 
-filePath2Stack :: FilePath -> Text -> Either ErrorBundle Stack
-filePath2Stack = parse (pExpr <* space <* eof)
+filePathSrc2Stack :: FilePath -> Text -> Either ErrorBundle Stack
+filePathSrc2Stack = parse (pExpr <* space <* eof)
 
 
 wrap :: Parser a -> Parser (Position, a)

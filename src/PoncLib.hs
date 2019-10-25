@@ -1,34 +1,39 @@
 module PoncLib
-  ( commandParse ) where
+  ( commandParse
+  , commandType
+  ) where
 
-import           Parse              (filePath2Stack)
 import           Shared
-import           Typing
+
+import           Parse              (filePathSrc2Stack)
+import           Typing             (stack2typedStack)
 
 import           Data.Text          (Text)
 import qualified Data.Text.IO       as TIO
-import           Data.Void          (Void)
-import           Safe               (headMay)
-import           System.Environment (getArgs)
-import           Text.Megaparsec    (ParseErrorBundle, errorBundlePretty)
+import           Text.Megaparsec    (errorBundlePretty)
 import           Text.Pretty.Simple as PrettyS
 
 type Source = Text
 
 commandParse :: [FilePath] -> IO ()
-commandParse filePaths =
-  fmap parseSource ((\path -> (,) path <$> TIO.readFile path) `mapM` filePaths)
+commandParse = commandPrint (fromFile parseSource)
+
+commandType :: [FilePath] -> IO ()
+commandType = commandPrint (fromFile typeSource)
+
+commandPrint :: Show a => (FilePath -> IO (Either ErrorBundle a)) -> [FilePath] -> IO ()
+commandPrint command filePaths =
+  command `mapM` filePaths
   >>= mapM_ (either (putStrLn . errorBundlePretty) PrettyS.pPrint)
 
-parseSource :: [(FilePath, Source)] -> [Either ErrorBundle Stack]
-parseSource srcs = uncurry filePath2Stack <$> srcs
+fromFile :: ((FilePath, Source) -> Either ErrorBundle a)
+         -> FilePath
+         -> IO (Either ErrorBundle a)
+fromFile interpret filePath = interpret <$> ((,) filePath <$> TIO.readFile filePath)
 
+parseSource :: (FilePath, Source) -> Either ErrorBundle Stack
+parseSource = uncurry filePathSrc2Stack
 
--- commandType :: [String] -> IO ()
--- commandType files = commandParse files
---                     >>= mapM_ (either (putStrLn . errorBundlePretty)
---                                 (PrettyS.pPrint . stack2typedStack))
-
-typeSource ::  [(FilePath, Source)] -> [Either ErrorBundle TypedStack]
-typeSource pathSrcs = undefined -- fmap stack2typedStack <$> parseSource pathSrcs
+typeSource :: (FilePath, Source) -> Either ErrorBundle TypedStack
+typeSource pathSrcs = parseSource pathSrcs >>= stack2typedStack
 

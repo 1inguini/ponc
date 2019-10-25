@@ -6,5 +6,5 @@ import           Data.IntMap (IntMap)
 
 data Function = Function
 
-typeStack :: Stack -> (IntMap Function, Function)
-typeStack = undefined
+-- typeStack :: Stack -> (IntMap Function, Function)
+-- typeStack = undefined

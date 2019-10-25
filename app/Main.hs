@@ -12,9 +12,7 @@ main = do
   ops <- getArgs
   maybe help (\com -> case com of
                  "parse" -> commandParse $ tail ops
-                 "type"  -> execParseFile (tail ops)
-                            >>= mapM_ (either (putStrLn . errorBundlePretty)
-                                        (PrettyS.pPrint . stack2typedStack))
+                 "type"  -> commandType $ tail ops
                  _       -> help)
     $ headMay ops
 
