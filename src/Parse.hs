@@ -1,51 +1,36 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Parse
-  ( execParseFile
-  , execParseFilePrint
-  , Stack ) where
+  ( filePath2Stack ) where
 
-import           Shared                     (Node (..), Stack (..), Type (..),
+import           Shared                     (ErrorBundle, FuncType (..),
+                                             Node (..), NormType (..), Parser,
+                                             Position, Stack (..), Type (..),
                                              Val (..))
 
-import           Control.Monad.State.Strict (State, get, gets, lift, modify,
-                                             put, runState)
-import           Data.Char                  (isAscii)
-import           Data.Map                   (Map, elems, empty, insert, (!?))
 import           Data.String                (IsString (..))
 import           Data.Text                  (Text)
-import qualified Data.Text.IO               as TIO
 import           Data.Void                  (Void)
-import           Safe                       (maximumDef)
-import           Text.Megaparsec            (ParseErrorBundle, Parsec, ParsecT,
-                                             SourcePos, Stream, Tokens, between,
-                                             choice, errorBundlePretty,
-                                             getSourcePos, initialPos, many,
-                                             parse, runParserT, sepBy1,
-                                             sepEndBy, takeWhile1P, try, (<|>))
-import           Text.Megaparsec            as P (eof, tokens)
+import           Text.Megaparsec            (ParseErrorBundle, between, choice,
+                                             eof, getParserState, parse, sepBy1,
+                                             sepEndBy, takeWhile1P, (<|>))
+import           Text.Megaparsec            as P (State (..))
 import qualified Text.Megaparsec.Char       as C (space1)
 import           Text.Megaparsec.Char.Lexer (decimal)
 import qualified Text.Megaparsec.Char.Lexer as L (lexeme,
                                                   skipBlockCommentNested,
                                                   skipLineComment, space)
 import           Text.Megaparsec.Debug      (dbg)
-import           Text.Pretty.Simple         as PrettyS
-
-execParseFilePrint :: [String] -> IO ()
-execParseFilePrint files =
-  execParseFile files
-  >>= mapM_ (either (putStrLn . errorBundlePretty) PrettyS.pPrint)
 
 
-execParseFile :: [String] -> IO [Either (ParseErrorBundle Text Void) Stack]
-execParseFile files =
-  (\file -> src2Expr file <$> TIO.readFile file)
-  `mapM` files
+filePath2Stack :: FilePath -> Text -> Either ErrorBundle Stack
+filePath2Stack = parse (pExpr <* space <* eof)
 
-type Parser = Parsec Void Text
 
-wrap :: Parser a -> Parser (SourcePos, a)
-wrap p = (,) <$> getSourcePos <*> p
+wrap :: Parser a -> Parser (Position, a)
+wrap p = (,) <$> getPosition <*> p
+  where
+    getPosition :: Parser Position
+    getPosition = statePosState <$> getParserState
 
 space :: Parser ()
 space = L.space C.space1 (L.skipLineComment "ln") (L.skipBlockCommentNested "blkC" "endC")
@@ -80,16 +65,6 @@ pVal = --dbg "val" $
   ]
 
 
--- src2Expr :: FilePath -> Text -> Either (ParseErrorBundle Text Void) [Node]
--- src2Expr filePath src = evalState (runParserT (pExpr <* space <* eof) filePath src) $ initialPos filePath
-
--- src2Expr :: FilePath -> Text -> Either (ParseErrorBundle Text Void) [Node]
--- src2Expr filePath src = snd <$> parse (unParser (pExpr <* space <* eof)) filePath src
-
-src2Expr :: FilePath -> Text -> Either (ParseErrorBundle Text Void) Stack
-src2Expr = parse (pExpr <* space <* eof)
-
-
 pExpr :: Parser Stack
 pExpr = --dbg "expr" $
   Stack <$> (space *> (wrap pTerm `sepEndBy` space))
@@ -97,18 +72,18 @@ pExpr = --dbg "expr" $
 pLambda :: Parser (Node Stack)
 pLambda = --dbg "lambda" $
   angles $ do
-  argTys <- lexeme pType
+  argTys <- lexeme pFuncType
   _      <- lexeme "|"
   body   <- pExpr
   pure $ DefSuperComb { superCombType = argTys
                       , body = body }
     where
-      pType = do
+      pFuncType = do
         args   <- lexeme $ brackets $ lexeme $ pTypeTerm `sepBy1` lexeme ","
         result <- lexeme "->" *> pTypeTerm
-        pure Func { args = args, result = result }
+        pure $ FuncType { args = args, result = result }
 
-      pTypeTerm = I <$ "I" <|> pType
+      pTypeTerm = Norm I <$ "I" <|> Func <$> pFuncType
 
 pTerm :: Parser (Node Stack)
 pTerm = --dbg "term" $
