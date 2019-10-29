@@ -11,9 +11,10 @@ main :: IO ()
 main = do
   ops <- getArgs
   maybe help (\com -> case com of
-                 "parse" -> commandParse $ tail ops
-                 "type"  -> commandType $ tail ops
-                 _       -> help)
+                 "parse"     -> commandParse $ tail ops
+                 -- "type"      -> commandType $ tail ops
+                 "typeStack" -> commandTypeStack $ tail ops
+                 _           -> help)
     $ headMay ops
 
 help :: IO ()

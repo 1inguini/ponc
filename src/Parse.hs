@@ -4,15 +4,19 @@ module Parse
 
 import           Shared                     (ErrorBundle, FuncType (..),
                                              Node (..), NormType (..), Parser,
-                                             Position, Stack (..), Type (..),
-                                             Val (..))
+                                             Position, ReversedNE (..),
+                                             Stack (..), Type (..), Val (..),
+                                             fromList)
 
+import qualified Data.List.NonEmpty         as NE
 import           Data.String                (IsString (..))
 import           Data.Text                  (Text)
 import           Data.Void                  (Void)
+import           Safe                       ()
 import           Text.Megaparsec            (ParseErrorBundle, between, choice,
-                                             eof, getParserState, parse, sepBy1,
-                                             sepEndBy, takeWhile1P, (<|>))
+                                             eof, getParserState, many,
+                                             optional, parse, takeWhile1P,
+                                             (<|>))
 import           Text.Megaparsec            as P (State (..))
 import qualified Text.Megaparsec.Char       as C (space1)
 import           Text.Megaparsec.Char.Lexer (decimal)
@@ -21,9 +25,21 @@ import qualified Text.Megaparsec.Char.Lexer as L (lexeme,
                                                   skipLineComment, space)
 import           Text.Megaparsec.Debug      (dbg)
 
-
 filePathSrc2Stack :: FilePath -> Text -> Either ErrorBundle Stack
 filePathSrc2Stack = parse (pExpr <* space <* eof)
+
+sepBy1 :: Parser a -> Parser b -> Parser (ReversedNE a)
+sepBy1 p sep = do
+  x  <- p
+  xs <- many $ sep *> p
+  pure $ fromList x xs
+
+sepEndBy1 :: Parser a -> Parser b -> Parser (ReversedNE a)
+sepEndBy1 p sep = do
+  x  <- p
+  xs <- many $ sep *> p
+  _  <- optional sep
+  pure $ fromList x xs
 
 
 wrap :: Parser a -> Parser (Position, a)
@@ -67,7 +83,7 @@ pVal = --dbg "val" $
 
 pExpr :: Parser Stack
 pExpr = --dbg "expr" $
-  Stack <$> (space *> (wrap pTerm `sepEndBy` space))
+  Stack <$> (space *> (wrap pTerm `sepEndBy1` space))
 
 pLambda :: Parser (Node Stack)
 pLambda = --dbg "lambda" $
@@ -80,10 +96,13 @@ pLambda = --dbg "lambda" $
     where
       pFuncType = do
         args   <- lexeme $ brackets $ lexeme $ pTypeTerm `sepBy1` lexeme ","
-        result <- lexeme "->" *> pTypeTerm
+        result <- lexeme "->" *> pTypeNorm
         pure $ FuncType { args = args, result = result }
 
-      pTypeTerm = Norm I <$ "I" <|> Func <$> pFuncType
+      pTypeNorm = I <$ "I"
+
+      pTypeTerm = choice [ Norm <$> pTypeNorm
+                         , Func <$> pFuncType ]
 
 pTerm :: Parser (Node Stack)
 pTerm = --dbg "term" $

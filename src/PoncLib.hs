@@ -1,6 +1,7 @@
 module PoncLib
   ( commandParse
-  , commandType
+  -- , commandType
+  , commandTypeStack
   ) where
 
 import           Shared
@@ -18,13 +19,17 @@ type Source = Text
 commandParse :: [FilePath] -> IO ()
 commandParse = commandPrint (fromFile parseSource)
 
-commandType :: [FilePath] -> IO ()
-commandType = commandPrint (fromFile typeSource)
+-- commandType :: [FilePath] -> IO ()
+-- commandType = commandPrint (fromFile typeOfSource)
+
+commandTypeStack :: [FilePath] -> IO ()
+commandTypeStack = commandPrint (fromFile typeSource)
 
 commandPrint :: Show a => (FilePath -> IO (Either ErrorBundle a)) -> [FilePath] -> IO ()
 commandPrint command filePaths =
   command `mapM` filePaths
   >>= mapM_ (either (putStrLn . errorBundlePretty) PrettyS.pPrint)
+
 
 fromFile :: ((FilePath, Source) -> Either ErrorBundle a)
          -> FilePath
@@ -36,4 +41,7 @@ parseSource = uncurry filePathSrc2Stack
 
 typeSource :: (FilePath, Source) -> Either ErrorBundle TypedStack
 typeSource pathSrcs = parseSource pathSrcs >>= stack2typedStack
+
+-- typeOfSource :: (FilePath, Source) -> Either ErrorBundle Type
+-- typeOfSource pathSrcs = parseSource pathSrcs >>= stackTypecheck
 

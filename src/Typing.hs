@@ -2,87 +2,49 @@ module Typing
   ( stack2typedStack
   ) where
 
-import           Shared               (ErrorBundle, FuncType (..), Node (..),
-                                       NonParserError (..), NormType (..),
-                                       Position, Stack (..), Type (..),
-                                       TypedStack (..), Val (..))
+import qualified Data.List.NonEmpty as NE
+import           Data.Set           (singleton)
+import           Shared             (ErrorBundle, FuncType (..), Node (..),
+                                     NonParserError (..), NormType (..),
+                                     Position, ReversedNE (..), Stack (..),
+                                     Type (..), TypedStack (..), Val (..),
+                                     atMay, toList)
+import           Text.Megaparsec    (ErrorFancy (..), ParseError (..),
+                                     ParseErrorBundle (..), PosState (..))
 
-import           Control.Monad.Reader (ReaderT, ask, local, runReaderT)
-import           Control.Monad.Trans  (lift)
-import           Data.List.NonEmpty   (NonEmpty (..))
-import           Data.Set             (singleton)
-import           Safe                 (atMay)
-import           Text.Megaparsec      (ErrorFancy (..), ParseError (..),
-                                       ParseErrorBundle (..), PosState (..))
+type Failable = Either ErrorBundle
 
-stack2typedStack :: Stack -> Either ErrorBundle TypedStack
-stack2typedStack stack = runReaderT (stackType stack) ([], Norm I)
+stack2typedStack :: Stack -> Failable TypedStack
+stack2typedStack (Stack stack) =
+  TypedStack <$> typeNode Nothing `mapM` stack
 
-throwError :: Position -> NonParserError -> Either ErrorBundle a
+
+throwError :: Position -> NonParserError -> Failable a
 throwError pos@PosState { pstateOffset = offset } e = Left $ ParseErrorBundle {
-  bundleErrors = FancyError offset (singleton (ErrorCustom e)) :| []
+  bundleErrors = FancyError offset (singleton (ErrorCustom e)) NE.:| []
   , bundlePosState = pos
   }
 
-stackNormalizeTo :: (Position, Stack) -> ReaderT ([Type], Type) (Either ErrorBundle) (Type, TypedStack)
-stackNormalizeTo (pos, stack) = do
-  TypedStack tyStack  <- stackType stack
-  (_, expectedResult) <- ask
-  ty                  <- lift $ tyListNormalizeTo $ deepReverse $ (\(p,t,_) -> (p,t)) <$> tyStack
-  pure (ty, TypedStack tyStack)
-    where
-      deepReverse :: [(Position, Type)] -> [(Position, Type)]
-      deepReverse ((pos, Func fTy@FuncType { args = args }):rest) =
-        deepReverse rest <> [(pos, Func fTy { args = reverse args })]
-      deepReverse (ty:rest) =
-        deepReverse rest <> [ty]
-      deepReverse [] =
-        []
 
-      tyListTruncTill :: [(Position, Type)] -> Type ->  Either ErrorBundle [(Position, Type)]
-      tyListTruncTill ((pos, Func fTy@FuncType { args = arg0:args }):tys) target = do
-        applyedOneArg <- tyListTruncTill tys arg0
-        tyListTruncTill ((pos, Func fTy { args = args }) : applyedOneArg) target
-      tyListTruncTill ((pos, Func FuncType { args = [], result = ty }):tys) target =
-        tyListTruncTill ((pos, ty):tys) target
-      tyListTruncTill ((pos, ty):tys) target
-        | ty == target = pure tys
-        | otherwise    = throwError pos TypeMismatch { expectedType = target, actualType = ty }
-      tyListTruncTill [] target =
-        throwError pos LackArgs
-
-      tyListNormalizeTo :: [(Position, Type)] -> Either ErrorBundle Type
-      tyListNormalizeTo ((_, Func FuncType { result = result }):tys) = do
-        shouldBeEmpty <- tyListTruncTill tys result
-        case shouldBeEmpty of
-          []         -> pure result
-          (pos, _):_ -> throwError pos ExcessArgs
-      tyListNormalizeTo [(_, ty)] = pure ty
-      -- tyListNormalizeTo _    = Nothing
-
-stackType :: Stack -> ReaderT ([Type], Type) (Either ErrorBundle) TypedStack
-stackType (Stack stack) =
-  TypedStack <$> nodeType `mapM` stack
-
-nodeType :: (Position, Node Stack) -> ReaderT ([Type], Type) (Either ErrorBundle) (Position, Type, Node TypedStack)
-nodeType (pos, DefSuperComb { superCombType = funcT@FuncType { args = env, result = expected }
-                            , body = stack }) = do
-   (resultT, tyStack) <- local (const (env, expected)) $ stackNormalizeTo (pos, stack)
-   if resultT == expected
-     then pure (pos, Func funcT
-               , DefSuperComb { superCombType = FuncType { args = env, result = resultT }
-                              , body = tyStack })
-     else lift $ throwError pos TypeMismatch { expectedType = expected, actualType = resultT }
-
-nodeType (pos, StackedVal Zero) =
+typeNode :: Maybe FuncType
+         -> (Position, Node Stack)
+         -> Failable (Position, Type, Node TypedStack)
+typeNode _ (pos, DefSuperComb { superCombType = ty, body = stack }) = do
+  typedStack <- TypedStack <$> typeNode (Just ty) `mapM` unStack stack
+  pure (pos, Func ty, DefSuperComb { superCombType = ty, body = typedStack })
+typeNode _ (pos, StackedVal Zero) =
   pure (pos, Norm I, StackedVal Zero)
-nodeType (pos, StackedVal (Bounded index)) = do
-  (tyList, _) <- ask
-  maybe (lift $ throwError pos UnboundedArg { expectedArgs = tyList
-                                            , actualArg = index })
-    (\t -> pure (pos, t, StackedVal (Bounded index)))
-    $ atMay tyList (fromIntegral index)
-
-nodeType (pos, StackedVal (SuccNotPred isSucc)) =
-  pure (pos, Func FuncType { args = [Norm I], result = Norm I }, StackedVal (SuccNotPred isSucc))
-
+typeNode _ (pos, StackedVal (SuccNotPred isSucc)) =
+  pure ( pos
+       , Func FuncType { args = Head (Norm I), result = I }
+       , StackedVal (SuccNotPred isSucc) )
+typeNode (Just FuncType { args = env }) (pos, StackedVal (Bounded index)) =
+  maybe
+  (throwError pos
+    UnboundedArg { expectedArgs = toList env, actualArg = index })
+  (\ty ->
+      pure (pos, ty, StackedVal (Bounded index)))
+  $ atMay env index
+typeNode Nothing (pos, StackedVal (Bounded index)) =
+  throwError pos
+  UnboundedArg { expectedArgs = [], actualArg = index }
